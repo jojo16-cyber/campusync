@@ -18,7 +18,8 @@
     "test:server": "npm run test --workspace=server",
     "test:client": "npm run test --workspace=client",
     "lint": "npm run lint --workspace=server && npm run lint --workspace=client",
-    "type-check": "npm run type-check --workspace=server && npm run type-check --workspace=client"
+    "type-check": "npm run type-check --workspace=server && npm run type-check --workspace=client",
+    "seed:admin": "npm run seed:admin --workspace=server"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

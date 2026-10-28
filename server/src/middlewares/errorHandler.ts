@@ -1,10 +1,16 @@
 import { Request, Response, NextFunction } from 'express';
+import { ZodError } from 'zod';
 import { AppError } from '../utils/appError';
 import { env } from '../config/env';
 
+interface MongoError extends Error {
+  code?: number;
+  keyValue?: Record<string, unknown>;
+}
+
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export const errorHandler = (
-  err: Error | AppError,
+  err: Error | AppError | ZodError | MongoError,
   _req: Request,
   res: Response,
   _next: NextFunction
@@ -17,6 +23,15 @@ export const errorHandler = (
     statusCode = err.statusCode;
     message = err.message;
     details = err.details;
+  } else if (err instanceof ZodError) {
+    statusCode = 400;
+    message = 'Validation failed';
+    details = err.flatten().fieldErrors;
+  } else if ('code' in err && (err as MongoError).code === 11000) {
+    // Mongo duplicate key error
+    statusCode = 409;
+    const field = Object.keys((err as MongoError).keyValue || {})[0] || 'field';
+    message = `An account with this ${field} already exists`;
   } else if (err.name === 'ValidationError') {
     // Mongoose validation error
     statusCode = 400;
