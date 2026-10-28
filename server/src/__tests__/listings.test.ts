@@ -601,6 +601,84 @@ describe('Placement & Internship Listings API (/api/listings)', () => {
       expect(res.body.data.eligibility.missingProfileFields).toContain('Department / Branch');
       expect(res.body.data.eligibility.missingProfileFields).toContain('Graduation Year');
     });
+
+    it('evaluates eligibility correctly for standardized branch acronym matching and expected graduation year 2027', async () => {
+      // Create a listing targeting CSE and graduating batch 2027
+      const resListing = await request(app)
+        .post('/api/listings')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          companyName: 'TechCorp 2027',
+          title: 'Graduate SDE 2027',
+          description: 'Hiring upcoming graduates.',
+          opportunityType: 'full_time',
+          location: 'Hyderabad',
+          workArrangement: 'hybrid',
+          compensation: '20 LPA',
+          employmentType: 'full_time',
+          skillsRequired: ['TypeScript', 'Node.js'],
+          eligibility: {
+            minCgpa: 7.5,
+            eligibleDepartments: ['CSE'],
+            eligibleGraduationYears: [2027],
+          },
+          applicationDeadline: new Date(Date.now() + 864000000).toISOString(),
+          status: 'published',
+        });
+
+      const listingId2027 = resListing.body.data.listing.id || resListing.body.data.listing._id;
+
+      // Set student profile with full branch name "Computer Science and Engineering (CSE)" and grad year 2027
+      mockProfiles.set('profile_student_1', {
+        ...mockProfiles.get('profile_student_1')!,
+        department: 'Computer Science and Engineering (CSE)',
+        graduationYear: 2027,
+        cgpa: 8.5,
+      });
+
+      const res = await request(app)
+        .get(`/api/listings/${listingId2027}`)
+        .set('Authorization', `Bearer ${studentToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.eligibility.isEligible).toBe(true);
+      expect(res.body.data.eligibility.status).toBe('eligible');
+
+      const deptCrit = res.body.data.eligibility.criteria.find(
+        (c: { criterion: string }) => c.criterion === 'Department / Branch'
+      );
+      expect(deptCrit.met).toBe(true);
+
+      const gradCrit = res.body.data.eligibility.criteria.find(
+        (c: { criterion: string }) => c.criterion === 'Expected Graduation Year'
+      );
+      expect(gradCrit.met).toBe(true);
+      expect(gradCrit.actual).toBe('Class of 2027');
+    });
+
+    it('identifies ineligibility when student graduation year does not match eligible batches', async () => {
+      // Student is Class of 2027, but publishedListingId requires [2026]
+      mockProfiles.set('profile_student_1', {
+        ...mockProfiles.get('profile_student_1')!,
+        department: 'Computer Science and Engineering (CSE)',
+        graduationYear: 2027,
+        cgpa: 8.5,
+      });
+
+      const res = await request(app)
+        .get(`/api/listings/${publishedListingId}`)
+        .set('Authorization', `Bearer ${studentToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.eligibility.isEligible).toBe(false);
+      expect(res.body.data.eligibility.status).toBe('ineligible');
+
+      const gradCrit = res.body.data.eligibility.criteria.find(
+        (c: { criterion: string }) => c.criterion === 'Expected Graduation Year'
+      );
+      expect(gradCrit.met).toBe(false);
+      expect(gradCrit.actual).toBe('Class of 2027');
+    });
   });
 
   describe('PUT / PATCH / DELETE /api/listings/:id', () => {

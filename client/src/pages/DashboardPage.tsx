@@ -162,17 +162,24 @@ export const DashboardPage: React.FC = () => {
               </Link>
             </div>
 
-            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-              <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-lg flex items-center justify-center mb-4">
-                <CheckCircle className="w-5 h-5" />
+            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+              <div>
+                <div className="w-10 h-10 bg-emerald-50 text-emerald-600 rounded-lg flex items-center justify-center mb-4">
+                  <CheckCircle className="w-5 h-5" />
+                </div>
+                <h3 className="font-semibold text-slate-900 mb-1">Application Pipeline</h3>
+                <p className="text-xs text-slate-600">
+                  Track interview round stages, shortlisted statuses, offers, and manage withdrawals.
+                </p>
               </div>
-              <h3 className="font-semibold text-slate-900 mb-1">Application Pipeline</h3>
-              <p className="text-xs text-slate-600">
-                Track interview round stages: online test, technical interview, HR discussion, and offer rollout.
-              </p>
-              <span className="inline-block mt-4 text-xs font-semibold text-emerald-600">
-                Phase 4 Module Preview
-              </span>
+              <Link
+                to="/applications"
+                className="mt-4 inline-flex items-center space-x-1 text-xs font-semibold text-emerald-600 hover:text-emerald-700 transition group"
+                data-testid="dashboard-applications-link"
+              >
+                <span>View My Applications</span>
+                <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+              </Link>
             </div>
           </div>
         </div>

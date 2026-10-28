@@ -139,6 +139,14 @@ describe('Opportunities & Placement Listings Flow (/listings)', () => {
           },
         });
       }
+      if (url === '/applications/me') {
+        return Promise.resolve({
+          data: {
+            success: true,
+            data: { applications: [], count: 0 },
+          },
+        });
+      }
       return Promise.reject(new Error(`Unhandled GET url: ${url}`));
     });
   };
@@ -338,6 +346,234 @@ describe('Opportunities & Placement Listings Flow (/listings)', () => {
 
     await waitFor(() => {
       expect(deleteSpy).toHaveBeenCalledWith('/listings/list_01');
+    });
+  });
+
+  it('allows eligible student to apply to an opportunity from detail modal', async () => {
+    setupAuthenticatedUser(mockStudentUser);
+
+    const postSpy = vi.spyOn(apiClient, 'post').mockResolvedValueOnce({
+      data: {
+        success: true,
+        message: 'Application submitted successfully',
+        data: {
+          application: {
+            id: 'app_new_01',
+            student: 'usr_student_01',
+            listing: { id: 'list_01' },
+            status: 'submitted',
+            coverLetter: 'Excited about Azure cloud architecture.',
+            submittedAt: '2026-10-28T12:00:00Z',
+          },
+        },
+      },
+    });
+
+    window.history.pushState({}, 'Listings', '/listings');
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('view-detail-btn-0')).toBeInTheDocument();
+    });
+
+    // Open Microsoft details
+    fireEvent.click(screen.getByTestId('view-detail-btn-0'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('apply-now-btn')).toBeInTheDocument();
+    });
+
+    // Click Apply Now
+    fireEvent.click(screen.getByTestId('apply-now-btn'));
+
+    expect(screen.getByTestId('cover-letter-input')).toBeInTheDocument();
+
+    // Enter statement
+    fireEvent.change(screen.getByTestId('cover-letter-input'), {
+      target: { value: 'Excited about Azure cloud architecture.' },
+    });
+
+    // Confirm submission
+    fireEvent.click(screen.getByTestId('confirm-apply-btn'));
+
+    await waitFor(() => {
+      expect(postSpy).toHaveBeenCalledWith('/applications', {
+        listingId: 'list_01',
+        coverLetter: 'Excited about Azure cloud architecture.',
+      });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('already-applied-banner')).toBeInTheDocument();
+      expect(screen.getByText('Application submitted successfully!')).toBeInTheDocument();
+    });
+  });
+
+  it('displays already-applied banner when student previously applied to the listing', async () => {
+    localStorage.setItem(TOKEN_STORAGE_KEY, 'mock_token');
+
+    vi.spyOn(apiClient, 'get').mockImplementation((url) => {
+      if (url === '/auth/me') {
+        return Promise.resolve({ data: { success: true, data: { user: mockStudentUser } } });
+      }
+      if (url === '/listings') {
+        return Promise.resolve({
+          data: {
+            success: true,
+            data: {
+              listings: mockListings,
+              pagination: { total: mockListings.length, page: 1, limit: 6, totalPages: 1 },
+            },
+          },
+        });
+      }
+      if (url === '/listings/list_01') {
+        return Promise.resolve({
+          data: {
+            success: true,
+            data: {
+              listing: mockListings[0],
+              eligibility: mockDetailEligibility,
+            },
+          },
+        });
+      }
+      if (url === '/applications/me') {
+        return Promise.resolve({
+          data: {
+            success: true,
+            data: {
+              applications: [
+                {
+                  id: 'app_existing_01',
+                  student: 'usr_student_01',
+                  listing: { id: 'list_01' },
+                  status: 'under_review',
+                  submittedAt: '2026-10-28T10:00:00Z',
+                },
+              ],
+              count: 1,
+            },
+          },
+        });
+      }
+      return Promise.reject(new Error(`Unhandled GET url: ${url}`));
+    });
+
+    window.history.pushState({}, 'Listings', '/listings');
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('view-detail-btn-0')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId('view-detail-btn-0'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('already-applied-banner')).toBeInTheDocument();
+      expect(screen.getByText(/under review/i)).toBeInTheDocument();
+    });
+
+    expect(screen.queryByTestId('apply-now-btn')).not.toBeInTheDocument();
+  });
+
+  it('allows administrator to open applicants modal and view applicant roster', async () => {
+    setupAuthenticatedUser(mockAdminUser);
+
+    const getSpy = vi.spyOn(apiClient, 'get').mockImplementation((url) => {
+      if (url === '/auth/me') {
+        return Promise.resolve({ data: { success: true, data: { user: mockAdminUser } } });
+      }
+      if (url === '/listings') {
+        return Promise.resolve({
+          data: {
+            success: true,
+            data: {
+              listings: mockListings,
+              pagination: { total: mockListings.length, page: 1, limit: 6, totalPages: 1 },
+            },
+          },
+        });
+      }
+      if (url === '/listings/list_01/applications') {
+        return Promise.resolve({
+          data: {
+            success: true,
+            data: {
+              listing: { id: 'list_01', title: 'Software Engineer', companyName: 'Microsoft' },
+              applications: [
+                {
+                  id: 'app_cand_01',
+                  student: { id: 'cand_01', name: 'Rohan Sharma', email: 'rohan@college.edu' },
+                  status: 'submitted',
+                  submittedAt: '2026-10-28T09:00:00Z',
+                  hasResume: true,
+                  studentProfile: {
+                    rollNumber: 'CS2022_44',
+                    cgpa: 8.9,
+                    department: 'Computer Science and Engineering (CSE)',
+                    graduationYear: 2026,
+                  },
+                },
+                {
+                  id: 'app_cand_02',
+                  student: { id: 'cand_02', name: 'Aarav Patel', email: 'aarav@college.edu' },
+                  status: 'submitted',
+                  submittedAt: '2026-10-28T09:30:00Z',
+                  hasResume: false,
+                  studentProfile: {
+                    rollNumber: 'CS2022_12',
+                    cgpa: 8.2,
+                    department: 'Information Technology (IT)',
+                    graduationYear: 2026,
+                  },
+                },
+              ],
+              pagination: { total: 2, page: 1, limit: 10, totalPages: 1 },
+            },
+          },
+        });
+      }
+      if (url === '/applications/app_cand_01/resume') {
+        return Promise.resolve({
+          data: new Blob(['%PDF-1.4 dummy resume'], { type: 'application/pdf' }),
+          headers: { 'content-disposition': 'attachment; filename="rohan_resume.pdf"' },
+        });
+      }
+      return Promise.reject(new Error(`Unhandled GET url: ${url}`));
+    });
+
+    window.history.pushState({}, 'Listings', '/listings');
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('admin-applicants-btn-0')).toBeInTheDocument();
+    });
+
+    // Click Applicants button
+    fireEvent.click(screen.getByTestId('admin-applicants-btn-0'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('applicants-modal')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('Rohan Sharma')).toBeInTheDocument();
+    expect(screen.getByText(/CGPA: 8.90/i)).toBeInTheDocument();
+    expect(screen.getByTestId('status-select-app_cand_01')).toBeInTheDocument();
+
+    // Verify Phase 6 Resume actions
+    expect(screen.getByTestId('download-resume-app_cand_01')).toBeInTheDocument();
+    expect(screen.getByTestId('no-resume-app_cand_02')).toHaveTextContent(/No resume uploaded/i);
+
+    // Mock URL methods and click download
+    window.URL.createObjectURL = vi.fn(() => 'blob:mock-resume');
+    window.URL.revokeObjectURL = vi.fn();
+    fireEvent.click(screen.getByTestId('download-resume-app_cand_01'));
+
+    await waitFor(() => {
+      expect(getSpy).toHaveBeenCalledWith('/applications/app_cand_01/resume', {
+        responseType: 'blob',
+      });
     });
   });
 

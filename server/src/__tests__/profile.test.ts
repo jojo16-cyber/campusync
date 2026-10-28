@@ -318,15 +318,40 @@ describe('Student Profile API (/api/profile)', () => {
       expect(res.body.details).toHaveProperty('cgpa');
     });
 
-    it('rejects invalid graduation years outside sensible ranges', async () => {
+    it('successfully updates student with standardized engineering branch and expected graduation year 2027', async () => {
       const res = await request(app)
+        .put('/api/profile/me')
+        .set('Authorization', `Bearer ${student1Token}`)
+        .send({
+          department: 'Computer Science and Engineering (CSE)',
+          graduationYear: 2027,
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.profile.department).toBe('Computer Science and Engineering (CSE)');
+      expect(res.body.data.profile.graduationYear).toBe(2027);
+    });
+
+    it('rejects invalid graduation years outside sensible ranges', async () => {
+      const resPast = await request(app)
         .put('/api/profile/me')
         .set('Authorization', `Bearer ${student1Token}`)
         .send({ graduationYear: 1990 });
 
-      expect(res.status).toBe(400);
-      expect(res.body.success).toBe(false);
-      expect(res.body.details).toHaveProperty('graduationYear');
+      expect(resPast.status).toBe(400);
+      expect(resPast.body.success).toBe(false);
+      expect(resPast.body.details).toHaveProperty('graduationYear');
+
+      const unreasonableYear = new Date().getFullYear() + 25;
+      const resFarFuture = await request(app)
+        .put('/api/profile/me')
+        .set('Authorization', `Bearer ${student1Token}`)
+        .send({ graduationYear: unreasonableYear });
+
+      expect(resFarFuture.status).toBe(400);
+      expect(resFarFuture.body.success).toBe(false);
+      expect(resFarFuture.body.details).toHaveProperty('graduationYear');
     });
 
     it('rejects malformed social and portfolio URLs', async () => {

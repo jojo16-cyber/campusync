@@ -49,7 +49,10 @@ export const updateProfileSchema = z
       .number({ invalid_type_error: 'Graduation year must be a valid number' })
       .int('Graduation year must be an integer')
       .min(2000, 'Graduation year must be 2000 or later')
-      .max(2040, 'Graduation year cannot be beyond 2040')
+      .refine(
+        (year) => year <= new Date().getFullYear() + 10,
+        { message: 'Expected graduation year must be within a realistic future range' }
+      )
       .nullable()
       .optional(),
     cgpa: z

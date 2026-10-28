@@ -1,7 +1,8 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { GraduationCap, LogOut, User as UserIcon, LayoutDashboard, Shield, Briefcase } from 'lucide-react';
+import { GraduationCap, LogOut, User as UserIcon, LayoutDashboard, Shield, Briefcase, FileText } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { NotificationBell } from './NotificationBell';
 
 export const Navbar: React.FC = () => {
   const { user, isAuthenticated, logout } = useAuth();
@@ -65,6 +66,20 @@ export const Navbar: React.FC = () => {
                 <Briefcase className="w-4 h-4" />
                 <span>Opportunities</span>
               </Link>
+
+              {user.role === 'student' && (
+                <Link
+                  to="/applications"
+                  className="inline-flex items-center space-x-1.5 text-sm font-medium text-slate-700 hover:text-blue-600 transition"
+                  data-testid="nav-applications-link"
+                >
+                  <FileText className="w-4 h-4" />
+                  <span>My Applications</span>
+                </Link>
+              )}
+
+              {/* Notification Bell */}
+              <NotificationBell />
 
               <div className="hidden md:flex items-center space-x-2 pl-3 border-l border-slate-200">
                 <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-600">

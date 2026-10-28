@@ -8,8 +8,12 @@ import {
   updateListingStatus,
   deleteListing,
 } from '../controllers/listing.controller';
+import { getListingApplications } from '../controllers/application.controller';
 
 const router = Router();
+
+// Admin-only listing applicants endpoint
+router.get('/:listingId/applications', requireAuth, requireRole('admin'), getListingApplications);
 
 // Browsing and detail (Student & Admin)
 router.get('/', requireAuth, getListings);

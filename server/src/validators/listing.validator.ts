@@ -53,7 +53,10 @@ export const createListingSchema = z.object({
             .number()
             .int()
             .min(2000, 'Graduation year must be >= 2000')
-            .max(2040, 'Graduation year must be <= 2040')
+            .refine(
+              (year) => year <= new Date().getFullYear() + 10,
+              { message: 'Eligible graduation year must be within a realistic future range' }
+            )
         )
         .default([]),
       additionalCriteria: z.string().trim().max(500).default(''),
@@ -95,7 +98,16 @@ export const updateListingSchema = z
         minCgpa: z.number().min(0).max(10).optional(),
         eligibleDepartments: z.array(z.string().trim()).optional(),
         eligibleGraduationYears: z
-          .array(z.number().int().min(2000).max(2040))
+          .array(
+            z
+              .number()
+              .int()
+              .min(2000, 'Graduation year must be >= 2000')
+              .refine(
+                (year) => year <= new Date().getFullYear() + 10,
+                { message: 'Eligible graduation year must be within a realistic future range' }
+              )
+          )
           .optional(),
         additionalCriteria: z.string().trim().max(500).optional(),
       })

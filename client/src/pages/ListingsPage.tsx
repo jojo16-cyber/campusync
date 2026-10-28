@@ -18,6 +18,16 @@ import {
   CreateListingPayload,
 } from '../api/listings';
 import {
+  submitApplication,
+  fetchMyApplications,
+  fetchListingApplicants,
+  updateApplicationStatus as updateCandidateStatus,
+  StudentApplicationData,
+  AdminApplicantData,
+  ApplicationStatus,
+} from '../api/applications';
+import { downloadApplicantResume } from '../api/resumes';
+import {
   Briefcase,
   Search,
   Calendar,
@@ -37,6 +47,8 @@ import {
   Sparkles,
   ArrowRight,
   Eye,
+  Users,
+  FileText,
 } from 'lucide-react';
 
 export const ListingsPage: React.FC = () => {
@@ -96,6 +108,38 @@ export const ListingsPage: React.FC = () => {
   // Delete Confirmation State
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
+  // Student Application State
+  const [myApplications, setMyApplications] = useState<StudentApplicationData[]>([]);
+  const [isApplying, setIsApplying] = useState<boolean>(false);
+  const [coverLetter, setCoverLetter] = useState<string>('');
+  const [isSubmittingApp, setIsSubmittingApp] = useState<boolean>(false);
+  const [applyError, setApplyError] = useState<string | null>(null);
+
+  // Admin Applicants Management State
+  const [isApplicantsModalOpen, setIsApplicantsModalOpen] = useState<boolean>(false);
+  const [activeListingForApplicants, setActiveListingForApplicants] = useState<ListingData | null>(null);
+  const [applicants, setApplicants] = useState<AdminApplicantData[]>([]);
+  const [applicantsLoading, setApplicantsLoading] = useState<boolean>(false);
+  const [applicantsError, setApplicantsError] = useState<string | null>(null);
+  const [applicantsStatusFilter, setApplicantsStatusFilter] = useState<string>('all');
+  const [applicantsPagination, setApplicantsPagination] = useState<PaginationMeta>({
+    total: 0,
+    page: 1,
+    limit: 10,
+    totalPages: 1,
+  });
+  const [statusUpdatingId, setStatusUpdatingId] = useState<string | null>(null);
+  const [expandedApplicantCoverLetterId, setExpandedApplicantCoverLetterId] = useState<string | null>(null);
+
+  // Fetch student's applications on mount
+  useEffect(() => {
+    if (user?.role === 'student') {
+      fetchMyApplications()
+        .then((apps) => setMyApplications(apps))
+        .catch(() => {});
+    }
+  }, [user]);
+
   // Load listings from backend
   const loadListings = useCallback(async (pageToLoad = 1) => {
     setLoading(true);
@@ -131,6 +175,9 @@ export const ListingsPage: React.FC = () => {
     setDetailLoading(true);
     setSelectedListing(null);
     setSelectedEligibility(null);
+    setIsApplying(false);
+    setCoverLetter('');
+    setApplyError(null);
     try {
       const data = await fetchListingById(id);
       setSelectedListing(data.listing);
@@ -140,6 +187,95 @@ export const ListingsPage: React.FC = () => {
       setError(msg);
     } finally {
       setDetailLoading(false);
+    }
+  };
+
+  // Submit Application Handler (Student)
+  const handleApplySubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!selectedListing) return;
+    setApplyError(null);
+    setIsSubmittingApp(true);
+    try {
+      const newApp = await submitApplication({
+        listingId: selectedListing.id,
+        coverLetter: coverLetter.trim() || undefined,
+      });
+      setSuccessMessage('Application submitted successfully!');
+      setMyApplications((prev) => [newApp, ...prev]);
+      setIsApplying(false);
+      setCoverLetter('');
+      setTimeout(() => setSuccessMessage(null), 4000);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to submit application';
+      setApplyError(msg);
+    } finally {
+      setIsSubmittingApp(false);
+    }
+  };
+
+  // Admin Applicants Handlers
+  const loadListingApplicants = async (listingId: string, page = 1, status = 'all') => {
+    setApplicantsLoading(true);
+    setApplicantsError(null);
+    try {
+      const data = await fetchListingApplicants(listingId, {
+        status: status !== 'all' ? status : undefined,
+        page,
+        limit: 10,
+      });
+      setApplicants(data.applications);
+      setApplicantsPagination(data.pagination);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to load applicants';
+      setApplicantsError(msg);
+    } finally {
+      setApplicantsLoading(false);
+    }
+  };
+
+  const handleOpenApplicants = (listing: ListingData) => {
+    setActiveListingForApplicants(listing);
+    setApplicantsStatusFilter('all');
+    setIsApplicantsModalOpen(true);
+    loadListingApplicants(listing.id, 1, 'all');
+  };
+
+  const handleUpdateApplicantStatus = async (appId: string, newStatus: ApplicationStatus) => {
+    setStatusUpdatingId(appId);
+    try {
+      await updateCandidateStatus(appId, newStatus);
+      setSuccessMessage(`Candidate status updated to ${newStatus}`);
+      if (activeListingForApplicants) {
+        loadListingApplicants(
+          activeListingForApplicants.id,
+          applicantsPagination.page,
+          applicantsStatusFilter
+        );
+      }
+      setTimeout(() => setSuccessMessage(null), 3000);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to update candidate status';
+      setApplicantsError(msg);
+    } finally {
+      setStatusUpdatingId(null);
+    }
+  };
+
+  const handleDownloadApplicantResume = async (appId: string, candidateName?: string) => {
+    try {
+      const { blob, filename } = await downloadApplicantResume(appId);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename || `${candidateName?.replace(/\s+/g, '_') || 'applicant'}_resume.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to download applicant resume';
+      setApplicantsError(msg);
     }
   };
 
@@ -233,10 +369,11 @@ export const ListingsPage: React.FC = () => {
       .map((d) => d.trim())
       .filter(Boolean);
 
+    const currentYear = new Date().getFullYear();
     const gradYears = eligibleGraduationYears
       .split(',')
       .map((y) => parseInt(y.trim(), 10))
-      .filter((y) => !isNaN(y) && y >= 2000 && y <= 2040);
+      .filter((y) => !isNaN(y) && y >= 2000 && y <= currentYear + 10);
 
     const deadlineDate = new Date(applicationDeadline);
     if (isNaN(deadlineDate.getTime())) {
@@ -659,6 +796,15 @@ export const ListingsPage: React.FC = () => {
                   {/* Admin Specific Actions */}
                   {isAdmin && (
                     <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => handleOpenApplicants(item)}
+                        className="px-2.5 py-1 text-[11px] font-semibold text-purple-700 bg-purple-50 hover:bg-purple-100 rounded-lg transition inline-flex items-center space-x-1"
+                        title="View Applicants"
+                        data-testid={`admin-applicants-btn-${index}`}
+                      >
+                        <Users className="w-3.5 h-3.5" />
+                        <span>Applicants</span>
+                      </button>
                       {item.status === 'draft' && (
                         <button
                           onClick={() => handleStatusChange(item.id, 'published')}
@@ -902,19 +1048,216 @@ export const ListingsPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Phase 5 Notice for Students */}
-                <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-900 flex items-center justify-between">
-                  <div>
-                    <span className="font-bold">Formal Application Submissions:</span>
-                    <p className="text-blue-700 mt-0.5">
-                      Direct single-click applications and candidate tracking will be activated in{' '}
-                      <strong>Phase 5</strong>.
-                    </p>
+                {/* Application Section for Students / Admin Shortcut */}
+                {isAdmin ? (
+                  <div className="p-4 bg-purple-50 border border-purple-200 rounded-2xl flex items-center justify-between">
+                    <div>
+                      <span className="font-bold text-xs text-purple-900">Applicant Tracking:</span>
+                      <p className="text-xs text-purple-700 mt-0.5">
+                        Manage received candidate submissions, inspect profiles, and transition hiring stages.
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        handleOpenApplicants(selectedListing);
+                      }}
+                      className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold rounded-xl shadow-md transition whitespace-nowrap"
+                      data-testid="detail-manage-applicants-btn"
+                    >
+                      View Applicants
+                    </button>
                   </div>
-                  <span className="px-2.5 py-1 bg-white rounded-md text-[10px] font-bold text-blue-800 border border-blue-200 uppercase tracking-wider">
-                    Phase 5 Preview
-                  </span>
-                </div>
+                ) : (
+                  <div>
+                    {(() => {
+                      const existingApplication = myApplications.find(
+                        (a) =>
+                          (typeof a.listing === 'object' && a.listing.id === selectedListing.id) ||
+                          (a.listing as unknown as string) === selectedListing.id
+                      );
+
+                      if (existingApplication) {
+                        return (
+                          <div
+                            className="p-4 bg-emerald-50 border border-emerald-200 rounded-2xl text-xs text-emerald-900 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
+                            data-testid="already-applied-banner"
+                          >
+                            <div>
+                              <div className="flex items-center space-x-1.5 font-bold text-emerald-800">
+                                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                                <span>Application Submitted</span>
+                              </div>
+                              <p className="text-emerald-700 mt-1">
+                                Your application is currently in{' '}
+                                <strong className="capitalize">
+                                  {existingApplication.status.replace(/_/g, ' ')}
+                                </strong>{' '}
+                                stage.
+                              </p>
+                            </div>
+                            <Link
+                              to="/applications"
+                              className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-sm transition whitespace-nowrap"
+                              data-testid="view-in-my-applications-btn"
+                            >
+                              Track in My Applications
+                            </Link>
+                          </div>
+                        );
+                      }
+
+                      if (selectedEligibility?.status === 'incomplete_profile') {
+                        return (
+                          <div
+                            className="p-4 bg-amber-50 border border-amber-200 rounded-2xl text-xs text-amber-900 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
+                            data-testid="incomplete-profile-banner"
+                          >
+                            <div>
+                              <div className="flex items-center space-x-1.5 font-bold text-amber-800">
+                                <AlertTriangle className="w-4 h-4 text-amber-600" />
+                                <span>Academic Profile Incomplete</span>
+                              </div>
+                              <p className="text-amber-700 mt-1">
+                                Complete your academic profile parameters (CGPA, Department, Batch) to apply.
+                              </p>
+                            </div>
+                            <Link
+                              to="/profile"
+                              className="px-3.5 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-semibold shadow-sm transition whitespace-nowrap"
+                            >
+                              Complete Profile
+                            </Link>
+                          </div>
+                        );
+                      }
+
+                      if (selectedEligibility && !selectedEligibility.isEligible) {
+                        return (
+                          <div
+                            className="p-4 bg-rose-50 border border-rose-200 rounded-2xl text-xs text-rose-900"
+                            data-testid="ineligible-banner"
+                          >
+                            <div className="flex items-center space-x-1.5 font-bold text-rose-800">
+                              <XCircle className="w-4 h-4 text-rose-600" />
+                              <span>Ineligible for this Opportunity</span>
+                            </div>
+                            <p className="text-rose-700 mt-1">
+                              Your academic profile does not meet one or more cutoffs required by{' '}
+                              {selectedListing.companyName}.
+                            </p>
+                          </div>
+                        );
+                      }
+
+                      if (selectedListing.status !== 'published' || selectedListing.isExpired) {
+                        return (
+                          <div
+                            className="p-4 bg-slate-100 border border-slate-200 rounded-2xl text-xs text-slate-700"
+                            data-testid="applications-closed-banner"
+                          >
+                            <p className="font-semibold text-slate-800">Applications Closed</p>
+                            <p className="text-slate-500 mt-0.5">
+                              The application window for this opportunity has expired or is not currently open.
+                            </p>
+                          </div>
+                        );
+                      }
+
+                      // Eligible and Open: Show Apply form / button
+                      if (!isApplying) {
+                        return (
+                          <div
+                            className="p-4 bg-blue-50 border border-blue-200 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"
+                            data-testid="ready-to-apply-banner"
+                          >
+                            <div>
+                              <span className="font-bold text-xs text-blue-900">
+                                Ready to Apply:
+                              </span>
+                              <p className="text-xs text-blue-700 mt-0.5">
+                                You satisfy all criteria for this drive. Submit your application directly to{' '}
+                                {selectedListing.companyName}.
+                              </p>
+                            </div>
+                            <button
+                              onClick={() => setIsApplying(true)}
+                              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-md transition whitespace-nowrap"
+                              data-testid="apply-now-btn"
+                            >
+                              Apply Now
+                            </button>
+                          </div>
+                        );
+                      }
+
+                      return (
+                        <form
+                          onSubmit={handleApplySubmit}
+                          className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3"
+                          data-testid="apply-form"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                              Submit Application Statement
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setIsApplying(false)}
+                              className="text-[11px] text-slate-400 hover:text-slate-600"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                          <div>
+                            <label className="block text-[11px] text-slate-600 mb-1">
+                              Cover Letter / Statement of Purpose (Optional, max 2000 characters)
+                            </label>
+                            <textarea
+                              rows={4}
+                              value={coverLetter}
+                              onChange={(e) => setCoverLetter(e.target.value)}
+                              maxLength={2000}
+                              placeholder="Introduce yourself, discuss your relevant coursework or projects, and why you want to join..."
+                              className="w-full p-2.5 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600"
+                              data-testid="cover-letter-input"
+                            />
+                            <div className="text-[10px] text-right text-slate-400 mt-1">
+                              {coverLetter.length} / 2000 characters
+                            </div>
+                          </div>
+
+                          {applyError && (
+                            <div
+                              className="p-2.5 bg-rose-50 border border-rose-200 rounded-lg text-xs text-rose-700"
+                              data-testid="apply-error-msg"
+                            >
+                              {applyError}
+                            </div>
+                          )}
+
+                          <div className="flex items-center justify-end space-x-2">
+                            <button
+                              type="button"
+                              onClick={() => setIsApplying(false)}
+                              disabled={isSubmittingApp}
+                              className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-200 rounded-lg transition"
+                            >
+                              Back
+                            </button>
+                            <button
+                              type="submit"
+                              disabled={isSubmittingApp}
+                              className="px-4 py-1.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow transition disabled:opacity-50"
+                              data-testid="confirm-apply-btn"
+                            >
+                              {isSubmittingApp ? 'Submitting...' : 'Confirm & Submit Application'}
+                            </button>
+                          </div>
+                        </form>
+                      );
+                    })()}
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -1235,6 +1578,267 @@ export const ListingsPage: React.FC = () => {
                 Yes, Delete
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Admin Applicants Management Modal */}
+      {isApplicantsModalOpen && activeListingForApplicants && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm overflow-y-auto"
+          data-testid="applicants-modal"
+        >
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-4xl w-full max-h-[92vh] overflow-y-auto p-6 sm:p-8 relative">
+            <button
+              onClick={() => setIsApplicantsModalOpen(false)}
+              className="absolute top-6 right-6 p-2 rounded-full text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition"
+              aria-label="Close applicants modal"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="mb-6">
+              <div className="flex items-center space-x-2">
+                <span className="text-xs font-bold text-purple-600 uppercase tracking-wider">
+                  {activeListingForApplicants.companyName}
+                </span>
+                <span className="text-slate-300">&bull;</span>
+                <span className="text-xs text-slate-500">Applicant Roster</span>
+              </div>
+              <h3 className="text-xl font-bold text-slate-900 mt-0.5">
+                Applicants: {activeListingForApplicants.title}
+              </h3>
+              <p className="text-xs text-slate-500 mt-1">
+                Review candidate credentials, verified CGPA cutoffs, and advance recruitment lifecycle stages.
+              </p>
+            </div>
+
+            {/* Status Filter Tabs */}
+            <div className="flex items-center space-x-1.5 overflow-x-auto pb-2 mb-4 border-b border-slate-100">
+              {[
+                { id: 'all', label: 'All Applicants' },
+                { id: 'submitted', label: 'Submitted' },
+                { id: 'under_review', label: 'Under Review' },
+                { id: 'shortlisted', label: 'Shortlisted' },
+                { id: 'interview_scheduled', label: 'Interview Scheduled' },
+                { id: 'selected', label: 'Selected' },
+                { id: 'rejected', label: 'Rejected' },
+                { id: 'withdrawn', label: 'Withdrawn' },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => {
+                    setApplicantsStatusFilter(tab.id);
+                    loadListingApplicants(activeListingForApplicants.id, 1, tab.id);
+                  }}
+                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition whitespace-nowrap ${
+                    applicantsStatusFilter === tab.id
+                      ? 'bg-purple-600 text-white shadow-sm'
+                      : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                  }`}
+                  data-testid={`applicant-filter-${tab.id}`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {applicantsError && (
+              <div className="mb-4 bg-rose-50 border border-rose-200 rounded-xl p-3 text-xs text-rose-800 flex items-center space-x-2">
+                <AlertTriangle className="w-4 h-4 text-rose-600 flex-shrink-0" />
+                <span>{applicantsError}</span>
+              </div>
+            )}
+
+            {/* Applicants Table */}
+            {applicantsLoading ? (
+              <div className="py-12 text-center text-xs text-slate-400 animate-pulse">
+                Loading applicant records...
+              </div>
+            ) : applicants.length === 0 ? (
+              <div className="py-12 text-center text-slate-500" data-testid="no-applicants-msg">
+                <Users className="w-10 h-10 mx-auto text-slate-300 mb-2" />
+                <p className="text-sm font-semibold">No applicants found</p>
+                <p className="text-xs text-slate-400 mt-1">
+                  {applicantsStatusFilter !== 'all'
+                    ? `No candidates in '${applicantsStatusFilter.replace(/_/g, ' ')}' stage.`
+                    : 'No student candidates have applied to this opportunity yet.'}
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs text-slate-600">
+                  <thead className="bg-slate-50 text-slate-700 font-bold uppercase tracking-wider text-[11px] border-y border-slate-200">
+                    <tr>
+                      <th className="py-3 px-3">Candidate</th>
+                      <th className="py-3 px-3">Academics</th>
+                      <th className="py-3 px-3">Resume</th>
+                      <th className="py-3 px-3">Applied On</th>
+                      <th className="py-3 px-3">Current Status</th>
+                      <th className="py-3 px-3 text-right">Update Stage</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {applicants.map((app) => (
+                      <React.Fragment key={app.id}>
+                        <tr
+                          className="hover:bg-slate-50/70 transition"
+                          data-testid={`applicant-row-${app.id}`}
+                        >
+                          <td className="py-3 px-3">
+                            <p className="font-bold text-slate-900">
+                              {app.student?.name || 'Student'}
+                            </p>
+                            <p className="text-[11px] text-slate-400 font-mono">
+                              {app.student?.email}
+                            </p>
+                            {app.coverLetter && (
+                              <button
+                                onClick={() =>
+                                  setExpandedApplicantCoverLetterId(
+                                    expandedApplicantCoverLetterId === app.id ? null : app.id
+                                  )
+                                }
+                                className="text-[10px] text-blue-600 hover:underline mt-0.5"
+                                data-testid={`toggle-statement-${app.id}`}
+                              >
+                                {expandedApplicantCoverLetterId === app.id
+                                  ? 'Hide note'
+                                  : 'View statement'}
+                              </button>
+                            )}
+                          </td>
+                          <td className="py-3 px-3">
+                            {app.studentProfile ? (
+                              <div>
+                                <p className="font-semibold text-slate-800">
+                                  CGPA: {app.studentProfile.cgpa !== null && app.studentProfile.cgpa !== undefined ? Number(app.studentProfile.cgpa).toFixed(2) : 'N/A'}
+                                </p>
+                                <p className="text-[11px] text-slate-500">
+                                  {app.studentProfile.department || 'General'} &bull; Class of{' '}
+                                  {app.studentProfile.graduationYear || 'N/A'}
+                                </p>
+                              </div>
+                            ) : (
+                              <span className="text-slate-400 italic">No profile record</span>
+                            )}
+                          </td>
+                          <td className="py-3 px-3 whitespace-nowrap">
+                            {app.hasResume ? (
+                              <button
+                                type="button"
+                                onClick={() => handleDownloadApplicantResume(app.id, app.student?.name)}
+                                className="inline-flex items-center space-x-1 px-2.5 py-1 text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition shadow-xs"
+                                data-testid={`download-resume-${app.id}`}
+                                title="Download applicant PDF resume"
+                              >
+                                <FileText className="w-3.5 h-3.5 text-blue-600" />
+                                <span>Resume PDF</span>
+                              </button>
+                            ) : (
+                              <span
+                                className="text-[11px] text-slate-400 italic"
+                                data-testid={`no-resume-${app.id}`}
+                              >
+                                No resume uploaded
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-3 px-3 whitespace-nowrap text-slate-500">
+                            {new Date(app.submittedAt || app.createdAt).toLocaleDateString()}
+                          </td>
+                          <td className="py-3 px-3 whitespace-nowrap">
+                            <span
+                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${
+                                app.status === 'selected'
+                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                  : app.status === 'rejected'
+                                  ? 'bg-rose-50 text-rose-700 border-rose-200'
+                                  : app.status === 'shortlisted' ||
+                                    app.status === 'interview_scheduled'
+                                  ? 'bg-purple-50 text-purple-700 border-purple-200'
+                                  : app.status === 'under_review'
+                                  ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                  : app.status === 'withdrawn'
+                                  ? 'bg-slate-100 text-slate-600 border-slate-300'
+                                  : 'bg-blue-50 text-blue-700 border-blue-200'
+                              }`}
+                              data-testid={`applicant-status-${app.id}`}
+                            >
+                              {app.status.replace(/_/g, ' ')}
+                            </span>
+                          </td>
+                          <td className="py-3 px-3 text-right whitespace-nowrap">
+                            {app.status === 'withdrawn' ||
+                            app.status === 'selected' ||
+                            app.status === 'rejected' ? (
+                              <span className="text-[11px] text-slate-400 italic">Final stage</span>
+                            ) : (
+                              <select
+                                value={app.status}
+                                onChange={(e) =>
+                                  handleUpdateApplicantStatus(
+                                    app.id,
+                                    e.target.value as ApplicationStatus
+                                  )
+                                }
+                                disabled={statusUpdatingId === app.id}
+                                className="px-2 py-1 text-xs rounded-lg border border-slate-200 bg-white font-medium focus:outline-none focus:ring-1 focus:ring-purple-500"
+                                data-testid={`status-select-${app.id}`}
+                              >
+                                <option value={app.status} disabled>
+                                  Change Status...
+                                </option>
+                                {app.status === 'submitted' && (
+                                  <>
+                                    <option value="under_review">Mark Under Review</option>
+                                    <option value="shortlisted">Shortlist Candidate</option>
+                                    <option value="rejected">Reject</option>
+                                  </>
+                                )}
+                                {app.status === 'under_review' && (
+                                  <>
+                                    <option value="shortlisted">Shortlist Candidate</option>
+                                    <option value="interview_scheduled">Schedule Interview</option>
+                                    <option value="rejected">Reject</option>
+                                  </>
+                                )}
+                                {app.status === 'shortlisted' && (
+                                  <>
+                                    <option value="interview_scheduled">Schedule Interview</option>
+                                    <option value="selected">Select (Offer Job)</option>
+                                    <option value="rejected">Reject</option>
+                                  </>
+                                )}
+                                {app.status === 'interview_scheduled' && (
+                                  <>
+                                    <option value="shortlisted">Return to Shortlist</option>
+                                    <option value="selected">Select (Offer Job)</option>
+                                    <option value="rejected">Reject</option>
+                                  </>
+                                )}
+                              </select>
+                            )}
+                          </td>
+                        </tr>
+                        {expandedApplicantCoverLetterId === app.id && app.coverLetter && (
+                          <tr className="bg-slate-50/50">
+                            <td colSpan={5} className="p-3 text-xs text-slate-700">
+                              <p className="font-bold text-slate-800 mb-1">
+                                Candidate Statement:
+                              </p>
+                              <p className="whitespace-pre-line leading-relaxed bg-white p-3 rounded-xl border border-slate-200">
+                                {app.coverLetter}
+                              </p>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       )}

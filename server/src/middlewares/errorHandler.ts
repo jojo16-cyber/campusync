@@ -30,8 +30,13 @@ export const errorHandler = (
   } else if ('code' in err && (err as MongoError).code === 11000) {
     // Mongo duplicate key error
     statusCode = 409;
-    const field = Object.keys((err as MongoError).keyValue || {})[0] || 'field';
-    message = `An account with this ${field} already exists`;
+    const keys = Object.keys((err as MongoError).keyValue || {});
+    if (keys.includes('student') || keys.includes('listing')) {
+      message = 'You have already submitted an application for this opportunity';
+    } else {
+      const field = keys[0] || 'field';
+      message = `An account with this ${field} already exists`;
+    }
   } else if (err.name === 'ValidationError') {
     // Mongoose validation error
     statusCode = 400;
@@ -44,6 +49,14 @@ export const errorHandler = (
     // Malformed JSON payload
     statusCode = 400;
     message = 'Malformed JSON in request body';
+  } else if (
+    err.name === 'MongoServerSelectionError' ||
+    err.name === 'MongoNetworkError' ||
+    (err.name === 'MongooseError' && err.message.includes('buffering timed out'))
+  ) {
+    // Database connection / network failure
+    statusCode = 503;
+    message = 'Database service unavailable. Please verify database connectivity and network access.';
   } else {
     // Unhandled or system error
     message = err.message || 'Internal Server Error';

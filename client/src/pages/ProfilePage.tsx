@@ -8,6 +8,13 @@ import {
   UpdateProfilePayload,
 } from '../api/profile';
 import {
+  fetchMyResume,
+  uploadResume,
+  downloadMyResume,
+  deleteMyResume,
+  ResumeData,
+} from '../api/resumes';
+import {
   User,
   Mail,
   Phone,
@@ -30,7 +37,12 @@ import {
   Plus,
   X,
   Lock,
-  ExternalLink,
+  Upload,
+  Download,
+  Trash2,
+  FileCheck,
+  Info,
+  FileUp,
 } from 'lucide-react';
 
 const SUGGESTED_SKILLS = [
@@ -47,6 +59,19 @@ const SUGGESTED_SKILLS = [
   'Data Structures',
   'Tailwind CSS',
 ];
+
+export const ENGINEERING_BRANCHES = [
+  'Computer Science and Engineering (CSE)',
+  'Information Technology (IT)',
+  'Electronics and Communication Engineering (ECE)',
+  'Electrical and Electronics Engineering (EEE)',
+  'Mechanical Engineering',
+  'Civil Engineering',
+  'Chemical Engineering',
+  'Aerospace Engineering',
+  'Biotechnology',
+  'Instrumentation and Control Engineering',
+] as const;
 
 export const ProfilePage: React.FC = () => {
   const { user, updateUser } = useAuth();
@@ -77,6 +102,18 @@ export const ProfilePage: React.FC = () => {
   const [githubUrl, setGithubUrl] = useState<string>('');
   const [portfolioUrl, setPortfolioUrl] = useState<string>('');
 
+  // Resume Management State (Phase 6)
+  const [resumeData, setResumeData] = useState<ResumeData | null>(null);
+  const [selectedResumeFile, setSelectedResumeFile] = useState<File | null>(null);
+  const [uploadingResume, setUploadingResume] = useState<boolean>(false);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [resumeError, setResumeError] = useState<string | null>(null);
+  const [resumeSuccess, setResumeSuccess] = useState<string | null>(null);
+  const [isDeleteResumeModalOpen, setIsDeleteResumeModalOpen] = useState<boolean>(false);
+  const [deletingResume, setDeletingResume] = useState<boolean>(false);
+  const [downloadingResume, setDownloadingResume] = useState<boolean>(false);
+  const [isReplacingResume, setIsReplacingResume] = useState<boolean>(false);
+
   // Initial fetch on mount
   useEffect(() => {
     let isMounted = true;
@@ -98,6 +135,16 @@ export const ProfilePage: React.FC = () => {
         if (isMounted) {
           setLoading(false);
         }
+      }
+
+      // Fetch active resume metadata
+      try {
+        const resumeMeta = await fetchMyResume();
+        if (isMounted && resumeMeta) {
+          setResumeData(resumeMeta);
+        }
+      } catch {
+        // Silently continue if no resume or endpoint not available
       }
     };
 
@@ -160,6 +207,121 @@ export const ProfilePage: React.FC = () => {
     }
   };
 
+  // Resume Handlers (Phase 6)
+  const handleResumeFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setResumeError(null);
+    setResumeSuccess(null);
+    const files = e.target.files;
+    if (!files || files.length === 0) {
+      setSelectedResumeFile(null);
+      return;
+    }
+    const file = files[0];
+
+    // Client-side quick validation
+    if (!file.name.toLowerCase().endsWith('.pdf') && file.type !== 'application/pdf') {
+      setResumeError('Invalid file format. Please select a valid PDF (.pdf) file.');
+      setSelectedResumeFile(null);
+      e.target.value = '';
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setResumeError(
+        `Selected file exceeds 5 MB limit (${(file.size / (1024 * 1024)).toFixed(2)} MB).`
+      );
+      setSelectedResumeFile(null);
+      e.target.value = '';
+      return;
+    }
+
+    setSelectedResumeFile(file);
+  };
+
+  const handleUploadResume = async () => {
+    if (!selectedResumeFile) {
+      setResumeError('Please select a PDF document first.');
+      return;
+    }
+
+    setUploadingResume(true);
+    setUploadProgress(0);
+    setResumeError(null);
+    setResumeSuccess(null);
+
+    try {
+      const uploaded = await uploadResume(selectedResumeFile, (progress) => {
+        setUploadProgress(progress);
+      });
+      setResumeData(uploaded);
+      setSelectedResumeFile(null);
+      setIsReplacingResume(false);
+      setResumeSuccess('Resume document uploaded and verified successfully.');
+      if (profile) {
+        setProfile({
+          ...profile,
+          resumeStatus: 'uploaded',
+          resumeUrl: '/api/resumes/me/download',
+        });
+      }
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        (err instanceof Error ? err.message : 'Failed to upload resume document');
+      setResumeError(msg);
+    } finally {
+      setUploadingResume(false);
+    }
+  };
+
+  const handleDownloadResume = async () => {
+    setDownloadingResume(true);
+    setResumeError(null);
+    try {
+      const { blob, filename } = await downloadMyResume();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename || resumeData?.originalName || 'my_resume.pdf';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to download resume file.';
+      setResumeError(msg);
+    } finally {
+      setDownloadingResume(false);
+    }
+  };
+
+  const handleDeleteResumeConfirm = async () => {
+    setDeletingResume(true);
+    setResumeError(null);
+    try {
+      await deleteMyResume();
+      setResumeData(null);
+      setIsDeleteResumeModalOpen(false);
+      setSelectedResumeFile(null);
+      setIsReplacingResume(false);
+      setResumeSuccess('Resume deleted successfully.');
+      if (profile) {
+        setProfile({
+          ...profile,
+          resumeStatus: 'not_uploaded',
+          resumeUrl: '',
+        });
+      }
+    } catch (err: unknown) {
+      const msg =
+        (err as { response?: { data?: { message?: string } } })?.response?.data?.message ||
+        (err instanceof Error ? err.message : 'Failed to delete resume');
+      setResumeError(msg);
+    } finally {
+      setDeletingResume(false);
+    }
+  };
+
   const handleSubmit = async (e: FormEvent | React.MouseEvent) => {
     e.preventDefault();
     setError(null);
@@ -176,8 +338,9 @@ export const ProfilePage: React.FC = () => {
 
     if (graduationYear) {
       const parsedYear = parseInt(graduationYear, 10);
-      if (isNaN(parsedYear) || parsedYear < 2000 || parsedYear > 2040) {
-        setError('Graduation year must be between 2000 and 2040');
+      const currentYear = new Date().getFullYear();
+      if (isNaN(parsedYear) || parsedYear < 2000 || parsedYear > currentYear + 10) {
+        setError(`Expected graduation year must be between 2000 and ${currentYear + 10}`);
         return;
       }
     }
@@ -577,16 +740,34 @@ export const ProfilePage: React.FC = () => {
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
                   <BookOpen className="w-4 h-4" />
                 </div>
-                <input
+                <select
                   id="department"
-                  type="text"
                   value={department}
                   onChange={(e) => setDepartment(e.target.value)}
-                  placeholder="e.g. Computer Science & Engineering"
-                  className="w-full pl-10 pr-3.5 py-2.5 text-sm rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition"
+                  className="w-full pl-10 pr-8 py-2.5 text-sm rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition"
                   data-testid="input-department"
-                />
+                >
+                  <option value="">Select Department / Branch</option>
+                  {Boolean(
+                    department &&
+                      !ENGINEERING_BRANCHES.includes(
+                        department as (typeof ENGINEERING_BRANCHES)[number]
+                      )
+                  ) && (
+                    <option value={department} data-testid="custom-branch-option">
+                      {department} (Current Record)
+                    </option>
+                  )}
+                  {ENGINEERING_BRANCHES.map((branch) => (
+                    <option key={branch} value={branch}>
+                      {branch}
+                    </option>
+                  ))}
+                </select>
               </div>
+              <p className="text-[11px] text-slate-400 mt-1">
+                Select your engineering discipline for placement drive eligibility.
+              </p>
             </div>
 
             {/* Degree */}
@@ -614,7 +795,7 @@ export const ProfilePage: React.FC = () => {
                 htmlFor="graduationYear"
                 className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-2"
               >
-                Graduation Year <span className="text-rose-500">*</span>
+                Expected Graduation Year <span className="text-rose-500">*</span>
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
@@ -624,14 +805,17 @@ export const ProfilePage: React.FC = () => {
                   id="graduationYear"
                   type="number"
                   min="2000"
-                  max="2040"
+                  max={new Date().getFullYear() + 10}
                   value={graduationYear}
                   onChange={(e) => setGraduationYear(e.target.value)}
-                  placeholder="2026"
+                  placeholder="e.g. 2027"
                   className="w-full pl-10 pr-3.5 py-2.5 text-sm rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-600 transition font-mono"
                   data-testid="input-gradyear"
                 />
               </div>
+              <p className="text-[11px] text-slate-400 mt-1">
+                Calendar year your degree will be completed (e.g. 2027).
+              </p>
             </div>
 
             {/* CGPA */}
@@ -884,63 +1068,301 @@ export const ProfilePage: React.FC = () => {
           </div>
         </div>
 
-        {/* Section 4: Resume Status (Phase 6 Preview) */}
+        {/* Section 4: Resume & Secure Document Management (Phase 6) */}
         <div className="bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-sm">
-          <div className="flex items-center space-x-3 mb-4 pb-4 border-b border-slate-100">
-            <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl">
-              <FileText className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="text-base font-bold text-slate-900">Placement Resume Status</h3>
-              <p className="text-xs text-slate-500">
-                Status of your candidate curriculum vitae and documents.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50 p-5 rounded-xl border border-slate-200">
-            <div className="flex items-start space-x-3">
-              <div className="w-10 h-10 rounded-lg bg-white border border-slate-200 flex items-center justify-center text-slate-600 flex-shrink-0">
-                <FileText className="w-5 h-5 text-blue-600" />
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 pb-4 border-b border-slate-100">
+            <div className="flex items-center space-x-3">
+              <div className="p-2 bg-emerald-50 text-emerald-600 rounded-xl">
+                <FileText className="w-5 h-5" />
               </div>
               <div>
-                <div className="flex items-center space-x-2">
-                  <h4 className="text-sm font-semibold text-slate-900">Resume Document Status:</h4>
-                  <span
-                    className={`px-2.5 py-0.5 rounded-full text-xs font-semibold capitalize ${
-                      profile?.resumeStatus === 'verified'
-                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                        : profile?.resumeStatus === 'uploaded'
-                        ? 'bg-blue-100 text-blue-800 border border-blue-200'
-                        : 'bg-amber-100 text-amber-800 border border-amber-200'
-                    }`}
-                    data-testid="resume-status-badge"
-                  >
-                    {profile?.resumeStatus?.replace('_', ' ') || 'Not Uploaded'}
-                  </span>
-                </div>
-                <p className="text-xs text-slate-500 mt-1">
-                  Full multipart PDF resume upload and verification will be integrated in{' '}
-                  <span className="font-semibold text-slate-700">Phase 6</span>. Your academic
-                  records, CGPA, and technical skill tags entered above are currently active for
-                  placement qualification.
+                <h3 className="text-base font-bold text-slate-900">Placement Resume Document</h3>
+                <p className="text-xs text-slate-500">
+                  Upload and manage your official PDF resume for verified placement applications.
                 </p>
               </div>
             </div>
 
-            {profile?.resumeUrl && (
-              <a
-                href={profile.resumeUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center space-x-1 px-3 py-1.5 text-xs font-medium text-blue-600 bg-white border border-blue-200 rounded-lg hover:bg-blue-50 transition"
+            <div className="flex items-center space-x-2">
+              <span className="text-xs font-semibold text-slate-500">Status:</span>
+              <span
+                className={`px-2.5 py-0.5 rounded-full text-xs font-semibold capitalize ${
+                  resumeData || profile?.resumeStatus === 'verified'
+                    ? profile?.resumeStatus === 'verified'
+                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                      : 'bg-blue-100 text-blue-800 border border-blue-200'
+                    : profile?.resumeStatus === 'uploaded'
+                    ? 'bg-blue-100 text-blue-800 border border-blue-200'
+                    : 'bg-amber-100 text-amber-800 border border-amber-200'
+                }`}
+                data-testid="resume-status-badge"
               >
-                <span>View Stored PDF</span>
-                <ExternalLink className="w-3.5 h-3.5" />
-              </a>
-            )}
+                {resumeData
+                  ? profile?.resumeStatus === 'verified'
+                    ? 'Verified'
+                    : 'Uploaded'
+                  : profile?.resumeStatus?.replace('_', ' ') || 'Not Uploaded'}
+              </span>
+            </div>
+          </div>
+
+          {/* Feedback messages */}
+          {resumeError && (
+            <div
+              data-testid="resume-error-msg"
+              className="mb-4 p-3.5 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl flex items-center space-x-2.5"
+            >
+              <AlertCircle className="w-4 h-4 flex-shrink-0" />
+              <span>{resumeError}</span>
+            </div>
+          )}
+
+          {resumeSuccess && (
+            <div
+              data-testid="resume-success-msg"
+              className="mb-4 p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs rounded-xl flex items-center space-x-2.5"
+            >
+              <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+              <span>{resumeSuccess}</span>
+            </div>
+          )}
+
+          {/* Active Resume Card */}
+          {resumeData ? (
+            <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 mb-6">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div className="flex items-start space-x-3.5">
+                  <div className="w-11 h-11 bg-white border border-slate-200 rounded-xl flex items-center justify-center text-rose-600 shadow-xs flex-shrink-0">
+                    <FileCheck className="w-6 h-6 text-blue-600" />
+                  </div>
+                  <div>
+                    <h4
+                      className="text-sm font-bold text-slate-900 break-all"
+                      data-testid="current-resume-name"
+                    >
+                      {resumeData.originalName}
+                    </h4>
+                    <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 mt-1">
+                      <span data-testid="current-resume-size">
+                        {(resumeData.fileSize / 1024).toFixed(1)} KB
+                      </span>
+                      <span>&bull;</span>
+                      <span data-testid="current-resume-date">
+                        Uploaded on {new Date(resumeData.uploadedAt).toLocaleDateString()}
+                      </span>
+                      <span>&bull;</span>
+                      <span className="font-mono text-[11px] bg-slate-200/80 px-1.5 py-0.5 rounded text-slate-700">
+                        v{resumeData.version || 1}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleDownloadResume}
+                    disabled={downloadingResume}
+                    className="inline-flex items-center space-x-1.5 px-3.5 py-2 text-xs font-semibold text-blue-700 bg-white border border-blue-200 rounded-xl hover:bg-blue-50 transition shadow-xs disabled:opacity-50"
+                    data-testid="download-resume-btn"
+                  >
+                    {downloadingResume ? (
+                      <Clock className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Download className="w-3.5 h-3.5" />
+                    )}
+                    <span>Download</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsReplacingResume(!isReplacingResume);
+                      setSelectedResumeFile(null);
+                      setResumeError(null);
+                    }}
+                    className="inline-flex items-center space-x-1.5 px-3.5 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition shadow-xs"
+                    data-testid="replace-resume-btn"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5 text-slate-500" />
+                    <span>{isReplacingResume ? 'Cancel Replacement' : 'Replace'}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsDeleteResumeModalOpen(true)}
+                    className="inline-flex items-center space-x-1.5 px-3.5 py-2 text-xs font-semibold text-rose-700 bg-white border border-rose-200 rounded-xl hover:bg-rose-50 transition shadow-xs"
+                    data-testid="delete-resume-btn"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Delete</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-slate-50/70 border border-dashed border-slate-300 rounded-xl p-5 mb-6 text-center">
+              <FileUp className="w-8 h-8 text-slate-400 mx-auto mb-2" />
+              <p className="text-sm font-semibold text-slate-700">No active resume uploaded</p>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Upload your official PDF curriculum vitae to automatically attach it to recruiter applications.
+              </p>
+            </div>
+          )}
+
+          {/* Upload / Replacement Dropzone */}
+          {(!resumeData || isReplacingResume) && (
+            <div className="border border-slate-200 rounded-xl p-5 bg-white mb-6">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">
+                {resumeData ? 'Upload Replacement Resume' : 'Select Resume Document'}
+              </h4>
+
+              <div className="flex flex-col items-center justify-center border-2 border-dashed border-slate-300 hover:border-blue-400 rounded-xl p-6 transition bg-slate-50/50">
+                <input
+                  type="file"
+                  id="resume-file-input"
+                  accept="application/pdf"
+                  onChange={handleResumeFileSelect}
+                  className="hidden"
+                  data-testid="resume-file-input"
+                  disabled={uploadingResume}
+                />
+                <label
+                  htmlFor="resume-file-input"
+                  className="flex flex-col items-center cursor-pointer text-center"
+                >
+                  <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mb-3">
+                    <Upload className="w-6 h-6" />
+                  </div>
+                  <span className="text-sm font-bold text-slate-800">
+                    Click to select PDF resume
+                  </span>
+                  <span className="text-xs text-slate-500 mt-1">
+                    PDF format only &bull; Up to 5 MB
+                  </span>
+                </label>
+              </div>
+
+              {/* Selected File Card & Actions */}
+              {selectedResumeFile && (
+                <div className="mt-4 p-4 bg-blue-50/60 border border-blue-200 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center space-x-3">
+                    <FileText className="w-5 h-5 text-blue-600 flex-shrink-0" />
+                    <div>
+                      <p className="text-xs font-bold text-slate-900 break-all" data-testid="selected-file-name">
+                        {selectedResumeFile.name}
+                      </p>
+                      <p className="text-[11px] text-slate-500" data-testid="selected-file-size">
+                        {(selectedResumeFile.size / (1024 * 1024)).toFixed(2)} MB
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedResumeFile(null)}
+                      disabled={uploadingResume}
+                      className="px-3 py-1.5 text-xs font-medium text-slate-600 hover:text-slate-800 transition"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleUploadResume}
+                      disabled={uploadingResume}
+                      className="inline-flex items-center space-x-1.5 px-4 py-1.5 text-xs font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg shadow-sm transition disabled:opacity-60"
+                      data-testid="upload-resume-btn"
+                    >
+                      {uploadingResume ? (
+                        <Clock className="w-3.5 h-3.5 animate-spin" />
+                      ) : (
+                        <Upload className="w-3.5 h-3.5" />
+                      )}
+                      <span>{uploadingResume ? 'Uploading...' : 'Upload PDF'}</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Upload Progress Bar */}
+              {uploadingResume && (
+                <div className="mt-3" data-testid="upload-progress-container">
+                  <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+                    <div
+                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${uploadProgress}%` }}
+                      data-testid="upload-progress-bar"
+                    />
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-1 text-center font-medium">
+                    Uploading & verifying PDF document signature... {uploadProgress}%
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Important Information Notice */}
+          <div className="flex items-start space-x-2.5 p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-600 text-xs">
+            <Info className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
+            <p>
+              <strong className="text-slate-800">Recruitment Note:</strong> Uploading or replacing
+              your resume updates your active profile document. It does not automatically submit a
+              new placement application or alter the evaluation stage of previously submitted applications.
+            </p>
           </div>
         </div>
+
+        {/* Delete Confirmation Modal */}
+        {isDeleteResumeModalOpen && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-xs"
+            data-testid="delete-resume-modal"
+          >
+            <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200">
+              <div className="flex items-center space-x-3 mb-4">
+                <div className="p-3 bg-rose-50 text-rose-600 rounded-xl">
+                  <Trash2 className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Delete Resume Document</h3>
+                  <p className="text-xs text-slate-500">This action cannot be undone.</p>
+                </div>
+              </div>
+
+              <p className="text-xs text-slate-600 leading-relaxed mb-6">
+                Are you sure you want to permanently delete your stored resume (
+                <span className="font-semibold text-slate-800">
+                  {resumeData?.originalName || 'current resume'}
+                </span>
+                )? Future recruitment opportunity applications will require a new resume document.
+              </p>
+
+              <div className="flex items-center justify-end space-x-3">
+                <button
+                  type="button"
+                  onClick={() => setIsDeleteResumeModalOpen(false)}
+                  disabled={deletingResume}
+                  className="px-4 py-2 text-xs font-semibold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition"
+                  data-testid="cancel-delete-resume-btn"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDeleteResumeConfirm}
+                  disabled={deletingResume}
+                  className="inline-flex items-center space-x-1.5 px-4 py-2 text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 rounded-xl shadow-sm transition disabled:opacity-50"
+                  data-testid="confirm-delete-resume-btn"
+                >
+                  {deletingResume && <Clock className="w-3.5 h-3.5 animate-spin" />}
+                  <span>{deletingResume ? 'Deleting...' : 'Confirm Delete'}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Bottom Action Bar */}
         <div className="flex items-center justify-end space-x-4 pt-4">

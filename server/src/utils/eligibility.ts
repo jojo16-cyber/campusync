@@ -19,6 +19,37 @@ export interface EligibilityEvaluationResult {
 }
 
 /**
+ * Normalizes branch / department names and handles common acronyms (e.g. CSE, IT, ECE, EEE, ICE)
+ */
+export const normalizeDepartment = (dept: string): string[] => {
+  if (!dept) return [];
+  const clean = dept.trim().toLowerCase();
+  const variations = new Set<string>([clean]);
+
+  // Extract acronym inside parentheses e.g. "Computer Science and Engineering (CSE)" -> "cse"
+  const acronymMatch = clean.match(/\(([a-z0-9]+)\)/i);
+  if (acronymMatch && acronymMatch[1]) {
+    variations.add(acronymMatch[1].toLowerCase());
+  }
+
+  // Remove parentheses e.g. "Computer Science and Engineering (CSE)" -> "computer science and engineering"
+  const withoutParens = clean.replace(/\s*\([^)]*\)/g, '').trim();
+  if (withoutParens) {
+    variations.add(withoutParens);
+  }
+
+  // Handle '&' vs 'and'
+  variations.add(clean.replace(/&/g, 'and').replace(/\s+/g, ' ').trim());
+  variations.add(clean.replace(/\band\b/g, '&').replace(/\s+/g, ' ').trim());
+  if (withoutParens) {
+    variations.add(withoutParens.replace(/&/g, 'and').replace(/\s+/g, ' ').trim());
+    variations.add(withoutParens.replace(/\band\b/g, '&').replace(/\s+/g, ' ').trim());
+  }
+
+  return Array.from(variations);
+};
+
+/**
  * Reusable evaluation function checking student profile against listing eligibility rules.
  * Never silently infers missing academic records.
  */
@@ -88,11 +119,21 @@ export const evaluateEligibility = (
   // 3. Evaluate Department / Branch
   const eligibleDepts = listing.eligibility?.eligibleDepartments || [];
   if (eligibleDepts.length > 0) {
-    const met = eligibleDepts.some((dept) => {
-      const d = dept.trim().toLowerCase();
-      const s = studentDept.toLowerCase();
-      return d === s || s.includes(d) || d.includes(s);
+    const studentVariations = normalizeDepartment(studentDept);
+
+    const met = eligibleDepts.some((listingDept) => {
+      const listingVariations = normalizeDepartment(listingDept);
+      return studentVariations.some((sVar) =>
+        listingVariations.some((lVar) => {
+          if (sVar === lVar) return true;
+          if (sVar.length >= 3 && lVar.length >= 3) {
+            return sVar.includes(lVar) || lVar.includes(sVar);
+          }
+          return false;
+        })
+      );
     });
+
     criteria.push({
       criterion: 'Department / Branch',
       required: eligibleDepts.join(', '),
@@ -108,20 +149,20 @@ export const evaluateEligibility = (
     });
   }
 
-  // 4. Evaluate Graduation Year / Batch
+  // 4. Evaluate Expected Graduation Year
   const eligibleYears = listing.eligibility?.eligibleGraduationYears || [];
   if (eligibleYears.length > 0) {
-    const met = eligibleYears.includes(studentYear);
+    const met = eligibleYears.some((year) => Number(year) === Number(studentYear));
     criteria.push({
-      criterion: 'Graduation Batch',
+      criterion: 'Expected Graduation Year',
       required: eligibleYears.map((y) => `Class of ${y}`).join(', '),
       actual: `Class of ${studentYear}`,
       met,
     });
   } else {
     criteria.push({
-      criterion: 'Graduation Batch',
-      required: 'All batches eligible',
+      criterion: 'Expected Graduation Year',
+      required: 'All graduation batches eligible',
       actual: `Class of ${studentYear}`,
       met: true,
     });
