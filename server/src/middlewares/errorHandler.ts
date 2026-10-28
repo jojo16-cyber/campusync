@@ -57,6 +57,10 @@ export const errorHandler = (
     // Database connection / network failure
     statusCode = 503;
     message = 'Database service unavailable. Please verify database connectivity and network access.';
+  } else if (err.message && err.message.startsWith('CORS origin not allowed')) {
+    // Cross-origin request blocked by policy
+    statusCode = 403;
+    message = err.message;
   } else {
     // Unhandled or system error
     message = err.message || 'Internal Server Error';
@@ -76,4 +80,3 @@ export const errorHandler = (
     timestamp: new Date().toISOString(),
   });
 };
-

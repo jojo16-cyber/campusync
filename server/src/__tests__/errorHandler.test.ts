@@ -28,6 +28,10 @@ describe('Error Handling Middleware', () => {
     throw error;
   });
 
+  testApp.get('/test/cors-error', () => {
+    throw new Error('CORS origin not allowed: https://unauthorized-origin.com');
+  });
+
   testApp.use(notFoundHandler);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   testApp.use((err: Error, req: Request, res: Response, next: NextFunction) => {
@@ -70,5 +74,11 @@ describe('Error Handling Middleware', () => {
     expect(res.body.success).toBe(false);
     expect(res.body.message).toContain('Database service unavailable');
   });
-});
 
+  it('handles CORS origin rejection with 403 status', async () => {
+    const res = await request(testApp).get('/test/cors-error');
+    expect(res.status).toBe(403);
+    expect(res.body.success).toBe(false);
+    expect(res.body.message).toContain('CORS origin not allowed');
+  });
+});

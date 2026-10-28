@@ -9,6 +9,9 @@ import apiRoutes from './routes';
 
 const app: Application = express();
 
+// Trust reverse proxy (Render, Vercel, NGINX) to enable correct client IP detection for rate limiting
+app.set('trust proxy', 1);
+
 // Security HTTP headers
 app.use(helmet());
 
@@ -16,15 +19,26 @@ app.use(helmet());
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (like mobile apps, curl, or same-origin)
+      // Allow requests with no origin (like mobile apps, curl, server-to-server, or health probes)
       if (!origin) return callback(null, true);
-      
-      // Allow any localhost origin (e.g., 5173, 5174, etc.)
+
+      // In non-production environments (development & test), allow localhost access
       const isLocalhost = /^http:\/\/localhost(:\d+)?$/.test(origin);
-      if (isLocalhost || origin === env.CORS_ORIGIN || env.CORS_ORIGIN === '*') {
+      if (env.NODE_ENV !== 'production' && isLocalhost) {
         return callback(null, true);
       }
-      
+
+      // Check allowed origins list (exact matching against configured CORS_ORIGIN; disallows wildcard when credentials enabled)
+      if (env.CORS_ORIGIN && env.CORS_ORIGIN !== '*') {
+        const allowedOrigins = env.CORS_ORIGIN.split(',')
+          .map((o) => o.trim())
+          .filter(Boolean);
+
+        if (allowedOrigins.includes(origin)) {
+          return callback(null, true);
+        }
+      }
+
       return callback(new Error(`CORS origin not allowed: ${origin}`));
     },
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
@@ -58,4 +72,3 @@ app.use(notFoundHandler);
 app.use(errorHandler);
 
 export default app;
-

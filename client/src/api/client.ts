@@ -2,9 +2,25 @@ import axios from 'axios';
 
 export const TOKEN_STORAGE_KEY = 'campasync_auth_token';
 
+/**
+ * Resolves and normalizes the API base URL.
+ * Handles production Render URLs (e.g., https://api.onrender.com/api),
+ * automatically stripping accidental trailing slashes and appending /api if omitted.
+ */
+export const getApiBaseUrl = (): string => {
+  const envUrl = import.meta.env.VITE_API_BASE_URL;
+  if (!envUrl) return '/api';
+
+  const trimmed = envUrl.trim().replace(/\/+$/, '');
+  if (/^https?:\/\/[^/]+$/.test(trimmed)) {
+    return `${trimmed}/api`;
+  }
+  return trimmed;
+};
+
 // Create configured Axios instance
 export const apiClient = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
+  baseURL: getApiBaseUrl(),
   headers: {
     'Content-Type': 'application/json',
   },
@@ -45,4 +61,3 @@ apiClient.interceptors.response.use(
     return Promise.reject(error);
   }
 );
-

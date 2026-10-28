@@ -1,8 +1,11 @@
 import app from './app';
-import { env } from './config/env';
+import { env, validateProductionSecurity } from './config/env';
 import { connectDatabase, disconnectDatabase } from './config/db';
 
 const startServer = async () => {
+  // Enforce production security invariants before database or listener initialization
+  validateProductionSecurity(env.NODE_ENV, env.JWT_SECRET);
+
   // Connect to database before starting HTTP listener
   await connectDatabase();
 
@@ -35,4 +38,3 @@ startServer().catch((error) => {
   console.error('[Server] Failed to initialize server:', error);
   process.exit(1);
 });
-
