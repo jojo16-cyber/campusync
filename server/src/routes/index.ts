@@ -7,6 +7,7 @@ import applicationRoutes from './application.routes';
 import resumeRoutes from './resume.routes';
 import studentRoutes from './student.routes';
 import notificationRoutes from './notification.routes';
+import analyticsRoutes from './analytics.routes';
 
 const router = Router();
 
@@ -19,6 +20,6 @@ router.use('/applications', applicationRoutes);
 router.use('/resumes', resumeRoutes);
 router.use('/students', studentRoutes);
 router.use('/notifications', notificationRoutes);
+router.use('/analytics', analyticsRoutes);
 
 export default router;
-
