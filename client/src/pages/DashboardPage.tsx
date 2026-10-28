@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { 
   GraduationCap, 
@@ -8,7 +9,8 @@ import {
   CheckCircle, 
   Building2, 
   BarChart3, 
-  Users
+  Users,
+  ArrowRight
 } from 'lucide-react';
 
 export const DashboardPage: React.FC = () => {
@@ -113,17 +115,24 @@ export const DashboardPage: React.FC = () => {
             <span>Student Placement Workspace</span>
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-              <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center mb-4">
-                <FileText className="w-5 h-5" />
+            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+              <div>
+                <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center mb-4">
+                  <FileText className="w-5 h-5" />
+                </div>
+                <h3 className="font-semibold text-slate-900 mb-1">Academic Profile &amp; Resume</h3>
+                <p className="text-xs text-slate-600">
+                  Update verified CGPA, department records, technical skill tags, and placement details.
+                </p>
               </div>
-              <h3 className="font-semibold text-slate-900 mb-1">Academic Profile &amp; Resume</h3>
-              <p className="text-xs text-slate-600">
-                Upload verified transcripts, update technical skill tags, and link your resume PDF.
-              </p>
-              <span className="inline-block mt-4 text-xs font-semibold text-blue-600">
-                Phase 3 Module Preview
-              </span>
+              <Link
+                to="/profile"
+                className="mt-4 inline-flex items-center space-x-1 text-xs font-semibold text-blue-600 hover:text-blue-700 transition group"
+                data-testid="dashboard-profile-link"
+              >
+                <span>Manage Student Profile</span>
+                <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+              </Link>
             </div>
 
             <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">

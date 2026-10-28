@@ -42,9 +42,19 @@ export const Navbar: React.FC = () => {
               <Link
                 to="/dashboard"
                 className="inline-flex items-center space-x-1.5 text-sm font-medium text-slate-700 hover:text-blue-600 transition"
+                data-testid="nav-dashboard-link"
               >
                 <LayoutDashboard className="w-4 h-4" />
                 <span>Dashboard</span>
+              </Link>
+
+              <Link
+                to="/profile"
+                className="inline-flex items-center space-x-1.5 text-sm font-medium text-slate-700 hover:text-blue-600 transition"
+                data-testid="nav-profile-link"
+              >
+                <UserIcon className="w-4 h-4" />
+                <span>Profile</span>
               </Link>
 
               <div className="hidden md:flex items-center space-x-2 pl-3 border-l border-slate-200">
