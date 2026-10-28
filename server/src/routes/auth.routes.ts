@@ -23,3 +23,4 @@ router.get('/admin-only', requireAuth, requireRole('admin'), (req, res) => {
 });
 
 export default router;
+

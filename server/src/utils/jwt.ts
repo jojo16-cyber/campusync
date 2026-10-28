@@ -27,3 +27,4 @@ export const verifyToken = (token: string): AuthTokenPayload => {
     throw new AppError('Invalid authentication token', 401);
   }
 };
+
