@@ -102,3 +102,4 @@ All API endpoints return JSON conforming to the standard API response structure:
 ### Phase 5: Administration & Analytics (Upcoming)
 - `GET /api/admin/metrics` — Aggregate stats: total placements, highest CTC, average CTC, branch-wise percentages
 - `GET /api/admin/reports/export` — Generate CSV/PDF placement compliance report
+

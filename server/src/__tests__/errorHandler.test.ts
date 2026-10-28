@@ -44,3 +44,4 @@ describe('Error Handling Middleware', () => {
     expect(res.body.message).toBe('Unexpected crash');
   });
 });
+

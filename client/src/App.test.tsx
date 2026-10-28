@@ -70,3 +70,4 @@ describe('App Component', () => {
     expect(screen.getByText(/Network error/i)).toBeInTheDocument();
   });
 });
+

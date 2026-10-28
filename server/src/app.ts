@@ -15,7 +15,18 @@ app.use(helmet());
 // CORS configuration
 app.use(
   cors({
-    origin: env.CORS_ORIGIN === '*' ? '*' : [env.CORS_ORIGIN, 'http://localhost:5173'],
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps, curl, or same-origin)
+      if (!origin) return callback(null, true);
+      
+      // Allow any localhost origin (e.g., 5173, 5174, etc.)
+      const isLocalhost = /^http:\/\/localhost(:\d+)?$/.test(origin);
+      if (isLocalhost || origin === env.CORS_ORIGIN || env.CORS_ORIGIN === '*') {
+        return callback(null, true);
+      }
+      
+      return callback(new Error(`CORS origin not allowed: ${origin}`));
+    },
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
@@ -47,3 +58,4 @@ app.use(notFoundHandler);
 app.use(errorHandler);
 
 export default app;
+

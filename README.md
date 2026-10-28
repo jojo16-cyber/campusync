@@ -76,8 +76,8 @@ placement-portal/
    npm run dev
    ```
    - Client will be available at: [http://localhost:5173](http://localhost:5173)
-   - API will be available at: [http://localhost:5000](http://localhost:5000)
-   - Health check endpoint: [http://localhost:5000/api/health](http://localhost:5000/api/health)
+   - API will be available at: [http://localhost:5001](http://localhost:5001)
+   - Health check endpoint: [http://localhost:5001/api/health](http://localhost:5001/api/health)
 
 ---
 
@@ -110,3 +110,4 @@ placement-portal/
 
 - [System & API Architecture](docs/ARCHITECTURE.md)
 - [MongoDB Database Design & ERD](docs/DATABASE_DESIGN.md)
+

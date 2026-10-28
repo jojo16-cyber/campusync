@@ -23,3 +23,4 @@ describe('GET /api/health', () => {
     expect(response.body).toHaveProperty('message');
   });
 });
+

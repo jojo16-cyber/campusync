@@ -170,7 +170,7 @@ export const App: React.FC = () => {
               <div>
                 <p className="font-medium">Connection Error</p>
                 <p className="text-xs text-rose-600 mt-0.5">{error}</p>
-                <p className="text-xs text-rose-500 mt-1">Ensure the backend server is running on port 5000.</p>
+                <p className="text-xs text-rose-500 mt-1">Ensure the backend server is running on port 5001.</p>
               </div>
             </div>
           )}
@@ -199,3 +199,4 @@ export const App: React.FC = () => {
 };
 
 export default App;
+

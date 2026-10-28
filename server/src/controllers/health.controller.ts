@@ -20,3 +20,4 @@ export const getHealth = (_req: Request, res: Response): void => {
 
   res.status(200).json(successResponse('Service health check successful', healthData));
 };
+

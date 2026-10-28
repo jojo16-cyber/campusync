@@ -119,3 +119,4 @@ Captures student applications to specific drives and tracking stages.
    `{ applicationDeadline: 1, status: 1 }` enables scheduled cron jobs to transition drives to `applications_closed`.
 4. **Soft Deletes**:
    Critical entities utilize an `isDeleted: Boolean` flag combined with sparse partial filter indexes.
+
