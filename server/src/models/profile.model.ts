@@ -213,3 +213,4 @@ export const StudentProfile: Model<IStudentProfile> = mongoose.model<IStudentPro
   'StudentProfile',
   studentProfileSchema
 );
+

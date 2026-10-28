@@ -8,6 +8,7 @@ import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { ProfilePage } from './pages/ProfilePage';
+import { ListingsPage } from './pages/ListingsPage';
 import { ShieldCheck } from 'lucide-react';
 
 export const App: React.FC = () => {
@@ -35,6 +36,14 @@ export const App: React.FC = () => {
                 element={
                   <ProtectedRoute>
                     <ProfilePage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/listings"
+                element={
+                  <ProtectedRoute>
+                    <ListingsPage />
                   </ProtectedRoute>
                 }
               />

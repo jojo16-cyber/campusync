@@ -81,17 +81,24 @@ export const DashboardPage: React.FC = () => {
               </span>
             </div>
 
-            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-              <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-lg flex items-center justify-center mb-4">
-                <Building2 className="w-5 h-5" />
+            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+              <div>
+                <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-lg flex items-center justify-center mb-4">
+                  <Building2 className="w-5 h-5" />
+                </div>
+                <h3 className="font-semibold text-slate-900 mb-1">Company Onboarding &amp; Drives</h3>
+                <p className="text-xs text-slate-600">
+                  Manage corporate recruiters, publish placement drives, and configure cutoffs.
+                </p>
               </div>
-              <h3 className="font-semibold text-slate-900 mb-1">Company Onboarding</h3>
-              <p className="text-xs text-slate-600">
-                Manage corporate recruiters, schedule campus interview slots, and publish placement drives.
-              </p>
-              <span className="inline-block mt-4 text-xs font-semibold text-indigo-600">
-                Phase 3 Module Preview
-              </span>
+              <Link
+                to="/listings"
+                className="mt-4 inline-flex items-center space-x-1 text-xs font-semibold text-indigo-600 hover:text-indigo-700 transition group"
+                data-testid="admin-manage-listings-link"
+              >
+                <span>Manage Recruitment Drives</span>
+                <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+              </Link>
             </div>
 
             <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
@@ -135,17 +142,24 @@ export const DashboardPage: React.FC = () => {
               </Link>
             </div>
 
-            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-              <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-lg flex items-center justify-center mb-4">
-                <Briefcase className="w-5 h-5" />
+            <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+              <div>
+                <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-lg flex items-center justify-center mb-4">
+                  <Briefcase className="w-5 h-5" />
+                </div>
+                <h3 className="font-semibold text-slate-900 mb-1">Eligible Drives</h3>
+                <p className="text-xs text-slate-600">
+                  View open recruitment drives matching your department, graduation year, and CGPA criteria.
+                </p>
               </div>
-              <h3 className="font-semibold text-slate-900 mb-1">Eligible Drives</h3>
-              <p className="text-xs text-slate-600">
-                View open recruitment drives matching your department, graduation year, and CGPA criteria.
-              </p>
-              <span className="inline-block mt-4 text-xs font-semibold text-indigo-600">
-                Phase 3 Module Preview
-              </span>
+              <Link
+                to="/listings"
+                className="mt-4 inline-flex items-center space-x-1 text-xs font-semibold text-indigo-600 hover:text-indigo-700 transition group"
+                data-testid="dashboard-listings-link"
+              >
+                <span>Browse Opportunities</span>
+                <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+              </Link>
             </div>
 
             <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">

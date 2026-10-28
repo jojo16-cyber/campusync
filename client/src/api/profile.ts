@@ -79,3 +79,4 @@ export const updateMyProfile = async (
   }
   throw new Error(response.data?.message || 'Failed to update student profile');
 };
+

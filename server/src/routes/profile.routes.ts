@@ -11,3 +11,4 @@ router.get('/me', requireAuth, getMyProfile);
 router.put('/me', requireAuth, updateMyProfile);
 
 export default router;
+
