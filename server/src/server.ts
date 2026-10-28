@@ -3,15 +3,13 @@ import { env } from './config/env';
 import { connectDatabase, disconnectDatabase } from './config/db';
 
 const startServer = async () => {
+  // Connect to database before starting HTTP listener
+  await connectDatabase();
+
   const server = app.listen(env.PORT, () => {
     console.log(`[Server] Placement & Internship Portal API running on http://localhost:${env.PORT}`);
     console.log(`[Server] Health check endpoint available at http://localhost:${env.PORT}/api/health`);
     console.log(`[Server] Environment: ${env.NODE_ENV}`);
-  });
-
-  // Attempt DB connection in background without blocking API listener
-  connectDatabase().catch((err) => {
-    console.warn('[Database] Background connection attempt failed:', err.message);
   });
 
   const handleShutdown = async (signal: string) => {
