@@ -12,7 +12,8 @@
     "test:coverage": "jest --coverage",
     "lint": "eslint src --ext .ts",
     "type-check": "tsc --noEmit",
-    "seed:admin": "tsx src/scripts/seedAdmin.ts"
+    "seed:admin": "node dist/scripts/seedAdmin.js || tsx src/scripts/seedAdmin.ts",
+    "seed:admin:dev": "tsx src/scripts/seedAdmin.ts"
   },
   "dependencies": {
     "@types/bcryptjs": "^2.4.6",
