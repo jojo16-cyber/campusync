@@ -63,10 +63,12 @@ describe('Cross-Origin Resource Sharing (CORS) Security Enforcement', () => {
             if (corsOrigin && corsOrigin !== '*') {
               const allowedOrigins = corsOrigin
                 .split(',')
-                .map((o) => o.trim())
+                .map((o) => o.trim().replace(/\/+$/, ''))
                 .filter(Boolean);
 
-              if (allowedOrigins.includes(origin)) {
+              const normalizedOrigin = origin.trim().replace(/\/+$/, '');
+
+              if (allowedOrigins.includes(normalizedOrigin)) {
                 return callback(null, true);
               }
             }
@@ -88,15 +90,41 @@ describe('Cross-Origin Resource Sharing (CORS) Security Enforcement', () => {
     };
 
     it('allows exact production origin configured in CORS_ORIGIN', async () => {
-      const prodApp = buildTestCorsApp('production', 'https://campusync.vercel.app');
+      const prodApp = buildTestCorsApp('production', 'https://campusync-orcin.vercel.app');
 
       const res = await request(prodApp)
         .get('/test')
-        .set('Origin', 'https://campusync.vercel.app');
+        .set('Origin', 'https://campusync-orcin.vercel.app');
 
       expect(res.status).toBe(200);
-      expect(res.headers['access-control-allow-origin']).toBe('https://campusync.vercel.app');
+      expect(res.headers['access-control-allow-origin']).toBe('https://campusync-orcin.vercel.app');
       expect(res.headers['access-control-allow-credentials']).toBe('true');
+    });
+
+    it('allows production origin when CORS_ORIGIN has an accidental trailing slash', async () => {
+      const prodApp = buildTestCorsApp('production', 'https://campusync-orcin.vercel.app/');
+
+      const res = await request(prodApp)
+        .get('/test')
+        .set('Origin', 'https://campusync-orcin.vercel.app');
+
+      expect(res.status).toBe(200);
+      expect(res.headers['access-control-allow-origin']).toBe('https://campusync-orcin.vercel.app');
+      expect(res.headers['access-control-allow-credentials']).toBe('true');
+    });
+
+    it('successfully handles CORS preflight OPTIONS requests for Vercel origin', async () => {
+      const prodApp = buildTestCorsApp('production', 'https://campusync-orcin.vercel.app');
+
+      const res = await request(prodApp)
+        .options('/test')
+        .set('Origin', 'https://campusync-orcin.vercel.app')
+        .set('Access-Control-Request-Method', 'POST')
+        .set('Access-Control-Request-Headers', 'Content-Type,Authorization');
+
+      expect(res.status).toBe(204);
+      expect(res.headers['access-control-allow-origin']).toBe('https://campusync-orcin.vercel.app');
+      expect(res.headers['access-control-allow-methods']).toContain('POST');
     });
 
     it('rejects arbitrary .vercel.app origin even when valid Vercel app is in CORS_ORIGIN', async () => {

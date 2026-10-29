@@ -17,7 +17,7 @@ services:
       - key: MONGODB_URI
         sync: false
       - key: CORS_ORIGIN
-        sync: false
+        value: https://campusync-orcin.vercel.app
       - key: JWT_SECRET
         sync: false
       - key: JWT_EXPIRES_IN

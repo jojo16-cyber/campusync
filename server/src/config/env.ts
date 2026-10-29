@@ -18,12 +18,17 @@ export interface EnvConfig {
 }
 
 export const DEFAULT_DEV_JWT_SECRET = 'campasync_jwt_secret_dev_key_2026_super_secure_32char_token';
+export const DEFAULT_PRODUCTION_ORIGIN = 'https://campusync-orcin.vercel.app';
 
 export const env: EnvConfig = {
   PORT: parseInt(process.env.PORT || '5001', 10),
   NODE_ENV: process.env.NODE_ENV || 'development',
   MONGODB_URI: process.env.MONGODB_URI || 'mongodb://localhost:27017/placement_portal',
-  CORS_ORIGIN: process.env.CORS_ORIGIN || 'http://localhost:5173',
+  CORS_ORIGIN:
+    process.env.CORS_ORIGIN ||
+    (process.env.NODE_ENV === 'production'
+      ? DEFAULT_PRODUCTION_ORIGIN
+      : 'http://localhost:5173'),
   JWT_SECRET: process.env.JWT_SECRET || DEFAULT_DEV_JWT_SECRET,
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '7d',
   ADMIN_NAME: process.env.ADMIN_NAME,

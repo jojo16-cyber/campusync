@@ -31,10 +31,12 @@ app.use(
       // Check allowed origins list (exact matching against configured CORS_ORIGIN; disallows wildcard when credentials enabled)
       if (env.CORS_ORIGIN && env.CORS_ORIGIN !== '*') {
         const allowedOrigins = env.CORS_ORIGIN.split(',')
-          .map((o) => o.trim())
+          .map((o) => o.trim().replace(/\/+$/, ''))
           .filter(Boolean);
 
-        if (allowedOrigins.includes(origin)) {
+        const normalizedOrigin = origin.trim().replace(/\/+$/, '');
+
+        if (allowedOrigins.includes(normalizedOrigin)) {
           return callback(null, true);
         }
       }

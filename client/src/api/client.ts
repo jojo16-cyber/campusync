@@ -9,7 +9,9 @@ export const TOKEN_STORAGE_KEY = 'campasync_auth_token';
  */
 export const getApiBaseUrl = (): string => {
   const envUrl = import.meta.env.VITE_API_BASE_URL;
-  if (!envUrl) return '/api';
+  if (!envUrl) {
+    return import.meta.env.PROD ? 'https://campusync-api.onrender.com/api' : '/api';
+  }
 
   const trimmed = envUrl.trim().replace(/\/+$/, '');
   if (/^https?:\/\/[^/]+$/.test(trimmed)) {
