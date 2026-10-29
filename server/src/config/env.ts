@@ -9,6 +9,7 @@ export interface EnvConfig {
   PORT: number;
   NODE_ENV: string;
   MONGODB_URI: string;
+  MONGODB_DB_NAME: string;
   CORS_ORIGIN: string;
   JWT_SECRET: string;
   JWT_EXPIRES_IN: string;
@@ -19,11 +20,13 @@ export interface EnvConfig {
 
 export const DEFAULT_DEV_JWT_SECRET = 'campasync_jwt_secret_dev_key_2026_super_secure_32char_token';
 export const DEFAULT_PRODUCTION_ORIGIN = 'https://campusync-orcin.vercel.app';
+export const DEFAULT_MONGODB_DB_NAME = 'placement_portal';
 
 export const env: EnvConfig = {
   PORT: parseInt(process.env.PORT || '5001', 10),
   NODE_ENV: process.env.NODE_ENV || 'development',
   MONGODB_URI: process.env.MONGODB_URI || 'mongodb://localhost:27017/placement_portal',
+  MONGODB_DB_NAME: process.env.MONGODB_DB_NAME || DEFAULT_MONGODB_DB_NAME,
   CORS_ORIGIN:
     process.env.CORS_ORIGIN ||
     (process.env.NODE_ENV === 'production'

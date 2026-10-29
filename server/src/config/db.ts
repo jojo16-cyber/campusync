@@ -4,6 +4,7 @@ import { env } from './env';
 export const connectDatabase = async (): Promise<void> => {
   try {
     await mongoose.connect(env.MONGODB_URI, {
+      dbName: process.env.MONGODB_DB_NAME || env.MONGODB_DB_NAME || 'placement_portal',
       serverSelectionTimeoutMS: 5000,
     });
     const sanitizedUri = env.MONGODB_URI.replace(/\/\/[^:]+:[^@]+@/, '//***:***@');
