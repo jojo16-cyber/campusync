@@ -1,3 +1,4 @@
+import { URL } from 'node:url';
 import { z } from 'zod';
 
 const optionalUrl = z

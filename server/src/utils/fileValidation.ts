@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import { Buffer } from 'node:buffer';
 
 export const MAX_RESUME_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
 export const ALLOWED_MIME_TYPES = ['application/pdf'];

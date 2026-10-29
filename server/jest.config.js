@@ -16,7 +16,8 @@ module.exports = {
           moduleResolution: 'node',
           esModuleInterop: true,
           strict: true,
-          skipLibCheck: true
+          skipLibCheck: true,
+          types: ['node', 'jest']
         }
       }
     ]
